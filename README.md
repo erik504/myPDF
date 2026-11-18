@@ -9,6 +9,36 @@ si copia su un altro PC e funziona.
 
 ![myPDF](res/screenshot.png)
 
+## Download
+
+Scarica **`myPDF.exe`** dall'ultima [Release](https://github.com/erik504/myPDF/releases/latest)
+e avvialo: niente installazione. Per usarlo su un altro PC basta copiarlo.
+
+L'eseguibile della Release 0.1.0 non è ancora firmato digitalmente: al primo avvio di un file
+scaricato da internet Windows può mostrare "Windows ha protetto il PC". Clicca *Ulteriori
+informazioni* → *Esegui comunque*, oppure, prima di avviarlo, tasto destro su `myPDF.exe` →
+*Proprietà* → spunta *Sblocca*. Un file copiato da una chiavetta USB o dalla rete locale non
+mostra l'avviso. Come firmarlo è spiegato in [Firmare l'eseguibile](#firmare-leseguibile).
+
+## Novità
+
+**Dopo la 0.1.0**, nel codice (l'eseguibile non cambia)
+- Script [`scripts\sign.ps1`](scripts/sign.ps1) per firmare `myPDF.exe`, verificarne la firma e
+  aggiornare la Release su GitHub; istruzioni in [Firmare l'eseguibile](#firmare-leseguibile).
+- Il repository ignora certificati e chiavi private (`*.pfx`, `*.p12`, `*.key`).
+
+**0.1.0** — 18 novembre 2026, prima versione
+- Visualizzatore Win32 nativo: pagine a scorrere, zoom da 5% a 1600% con disegno a riquadri,
+  adatta alla larghezza o alla pagina, trascinamento, scorciatoie, nitido su schermi ad alta
+  risoluzione.
+- Elenco dei documenti riordinabile e unione in un unico PDF, con un segnalibro per file; campi
+  dei moduli e livelli conservati.
+- Stampa con la finestra di Windows.
+- Riga di comando: `--merge` (anche con `*.pdf` e cartelle), `--print`, `--printers`.
+- PDF protetti da password; PDF troncati o danneggiati mostrati fino a dove si può, con una
+  pagina *Broken PDF format*; file non PDF segnalati senza chiusure.
+- Registrazione come programma per aprire i `.pdf`.
+
 ## Cosa fa
 
 - **Visualizza** i PDF con le pagine una sotto l'altra: rotellina per scorrere, trascinamento
@@ -103,32 +133,8 @@ cargo build --release
 cargo test
 ```
 
-L'eseguibile è `target\release\myPDF.exe`.
-
-### Firmare l'eseguibile
-
-Senza firma, al primo avvio di un file scaricato Windows mostra l'avviso SmartScreen
-("Windows ha protetto il PC"). La firma con un certificato di firma del codice mostra il nome
-dell'autore; l'avviso sparisce man mano che il programma accumula download (dal 2024 anche i
-certificati EV non danno più fiducia immediata). Per uno sviluppatore privato di un progetto open
-source va bene, per esempio, il certificato *Open Source Code Signing* di Certum nel cloud
-(SimplySign).
-
-[`scripts\sign.ps1`](scripts/sign.ps1) firma `myPDF.exe` con `signtool` (dal Windows SDK), con
-SHA-256 e marca temporale, e poi verifica la firma come fa Windows:
-
-```powershell
-# firma myPDF.exe nella cartella del progetto
-.\scripts\sign.ps1 -CertName "Open Source Developer, Mario Rossi"
-
-# ricompila, firma, verifica e sostituisce l'exe nella Release di GitHub (con l'impronta SHA-256 nelle note)
-.\scripts\sign.ps1 -Build -CertName "Open Source Developer, Mario Rossi" -Upload
-```
-
-Il certificato si indica con `-CertName`, `-Thumbprint` oppure `-PfxFile`/`-PfxPassword` (o con le
-variabili d'ambiente `MYPDF_SIGN_CERT` / `MYPDF_SIGN_THUMBPRINT`); con Certum SimplySign basta che
-l'app SimplySign Desktop sia connessa. Con `-Upload` l'eseguibile viene caricato solo se la firma è
-attendibile per Windows. `Get-Help .\scripts\sign.ps1 -Full` mostra tutte le opzioni.
+L'eseguibile è `target\release\myPDF.exe`; per distribuirlo conviene firmarlo (vedi
+[Firmare l'eseguibile](#firmare-leseguibile)).
 
 Struttura del codice:
 
@@ -144,6 +150,91 @@ Struttura del codice:
 
 I test (`cargo test`) provano anche il motore di Windows vero, la riga di comando sull'eseguibile
 e la stampa su *Microsoft Print to PDF* (saltata se quella stampante non c'è).
+
+## Firmare l'eseguibile
+
+La firma digitale fa comparire il nome dell'autore al posto di "Autore sconosciuto" e garantisce
+che il file non è stato modificato. L'avviso SmartScreen ("Windows ha protetto il PC") però non
+sparisce subito: Windows lo toglie man mano che il programma viene scaricato e usato, cioè quando
+accumula *reputazione*. Dal 2024 anche i costosi certificati EV non danno più fiducia immediata:
+non serve comprarli per questo.
+
+### 1. Procurarsi un certificato
+
+- **Certum Open Source Code Signing nel cloud (SimplySign)**: pensato per gli sviluppatori open
+  source privati, come per myPDF. La chiave resta nel cloud di Certum: si firma dal PC con l'app
+  SimplySign Desktop e un codice dall'app SimplySign sul telefono, senza chiavetta. Serve la verifica
+  dell'identità con un documento; nel certificato compare "Open Source Developer, Nome Cognome".
+- In alternativa un certificato OV ("Standard Code Signing") di Certum, Sectigo, SSL.com o altri:
+  funziona allo stesso modo, ma costa di più.
+- *Azure Artifact Signing* di Microsoft oggi è disponibile per le persone fisiche solo in USA e
+  Canada.
+- Un certificato creato da sé (autofirmato) non serve: sugli altri PC Windows non lo riconosce.
+
+Per prezzi e disponibilità aggiornati controlla i siti dei fornitori.
+
+### 2. Preparare il PC
+
+1. **signtool**, lo strumento di firma di Microsoft: è nel Windows SDK. Se hai già compilato
+   myPDF ce l'hai; altrimenti installa il Windows SDK scegliendo almeno *Windows SDK Signing Tools
+   for Desktop Apps*. Lo script lo trova da solo.
+2. **Il certificato**: con Certum, installa SimplySign Desktop e collegati (codice dall'app sul
+   telefono). Finché è collegato, il certificato compare tra quelli di Windows. Per vederne il nome
+   esatto:
+
+   ```powershell
+   Get-ChildItem Cert:\CurrentUser\My -CodeSigningCert | Format-List Subject, Thumbprint, NotAfter
+   ```
+
+### 3. Firmare
+
+Dalla cartella del progetto, con il nome del tuo certificato (la parte dopo `CN=` di *Subject*):
+
+```powershell
+.\scripts\sign.ps1 -CertName "Open Source Developer, Mario Rossi"
+```
+
+Lo script firma `myPDF.exe` con SHA-256 e marca temporale (così la firma resta valida anche dopo
+la scadenza del certificato), poi la controlla come fa Windows e mostra autore, scadenza, marca
+temporale e impronta SHA-256. Codici di uscita: `0` firma valida e attendibile, `2` firma presente
+ma non attendibile (per esempio un certificato di prova), `1` errore.
+
+Altre possibilità:
+- `-Build` ricompila prima di firmare;
+- `-Thumbprint <impronta>` oppure `-PfxFile <file> -PfxPassword <password>` al posto di `-CertName`;
+  se nell'archivio di Windows c'è un solo certificato di firma, si può anche non indicare nulla;
+- per non riscrivere il nome ogni volta: `$env:MYPDF_SIGN_CERT = "Open Source Developer, Mario Rossi"`;
+- `-File <percorso>` per firmare un altro file;
+- `Get-Help .\scripts\sign.ps1 -Full` mostra tutte le opzioni.
+
+Se Windows PowerShell dice che l'esecuzione degli script è disabilitata, avvialo così (vale solo
+per quel comando, non cambia le impostazioni):
+
+```powershell
+powershell -ExecutionPolicy Bypass -File .\scripts\sign.ps1 -CertName "Open Source Developer, Mario Rossi"
+```
+
+Per controllare a mano: tasto destro su `myPDF.exe` → *Proprietà* → scheda *Firme digitali*, oppure:
+
+```powershell
+Get-AuthenticodeSignature .\myPDF.exe | Format-List Status, SignerCertificate, TimeStamperCertificate
+```
+
+### 4. Pubblicare
+
+Per sostituire l'eseguibile nella Release di GitHub e aggiornarne l'impronta SHA-256 nelle note:
+
+```powershell
+.\scripts\sign.ps1 -Build -CertName "Open Source Developer, Mario Rossi" -Upload
+```
+
+Serve [GitHub CLI](https://cli.github.com/) (`gh`) con l'accesso al repository. La Release è quella
+della versione scritta in `Cargo.toml`, e lo script carica il file solo se la firma è attendibile.
+
+Ricorda:
+- firma ogni nuova versione: una modifica all'eseguibile annulla la firma;
+- i file del certificato (`.pfx`, `.p12`, `.key`) non vanno mai nel repository: il `.gitignore`
+  li esclude già.
 
 ## Limiti
 
