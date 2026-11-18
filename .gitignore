@@ -2,3 +2,7 @@
 # L'eseguibile si distribuisce con le Release di GitHub, non nel repository
 /*.exe
 *.pdb
+# Certificati e chiavi private per la firma: mai nel repository
+*.pfx
+*.p12
+*.key

@@ -105,6 +105,31 @@ cargo test
 
 L'eseguibile è `target\release\myPDF.exe`.
 
+### Firmare l'eseguibile
+
+Senza firma, al primo avvio di un file scaricato Windows mostra l'avviso SmartScreen
+("Windows ha protetto il PC"). La firma con un certificato di firma del codice mostra il nome
+dell'autore; l'avviso sparisce man mano che il programma accumula download (dal 2024 anche i
+certificati EV non danno più fiducia immediata). Per uno sviluppatore privato di un progetto open
+source va bene, per esempio, il certificato *Open Source Code Signing* di Certum nel cloud
+(SimplySign).
+
+[`scripts\sign.ps1`](scripts/sign.ps1) firma `myPDF.exe` con `signtool` (dal Windows SDK), con
+SHA-256 e marca temporale, e poi verifica la firma come fa Windows:
+
+```powershell
+# firma myPDF.exe nella cartella del progetto
+.\scripts\sign.ps1 -CertName "Open Source Developer, Mario Rossi"
+
+# ricompila, firma, verifica e sostituisce l'exe nella Release di GitHub (con l'impronta SHA-256 nelle note)
+.\scripts\sign.ps1 -Build -CertName "Open Source Developer, Mario Rossi" -Upload
+```
+
+Il certificato si indica con `-CertName`, `-Thumbprint` oppure `-PfxFile`/`-PfxPassword` (o con le
+variabili d'ambiente `MYPDF_SIGN_CERT` / `MYPDF_SIGN_THUMBPRINT`); con Certum SimplySign basta che
+l'app SimplySign Desktop sia connessa. Con `-Upload` l'eseguibile viene caricato solo se la firma è
+attendibile per Windows. `Get-Help .\scripts\sign.ps1 -Full` mostra tutte le opzioni.
+
 Struttura del codice:
 
 | File | Contenuto |
