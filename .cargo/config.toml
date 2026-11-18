@@ -1,0 +1,10 @@
+# Runtime C collegato dentro l'exe: myPDF.exe funziona su qualsiasi Windows 10/11
+# senza installare il "Visual C++ Redistributable".
+[target.x86_64-pc-windows-msvc]
+rustflags = ["-C", "target-feature=+crt-static"]
+
+[target.i686-pc-windows-msvc]
+rustflags = ["-C", "target-feature=+crt-static"]
+
+[target.aarch64-pc-windows-msvc]
+rustflags = ["-C", "target-feature=+crt-static"]

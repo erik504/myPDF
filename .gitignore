@@ -1,0 +1,4 @@
+/target
+# L'eseguibile si distribuisce con le Release di GitHub, non nel repository
+/*.exe
+*.pdb
